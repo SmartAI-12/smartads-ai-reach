@@ -13,7 +13,7 @@ import { MobileCardList, MobileCardItem } from '@/components/ui/mobile-card';
 import { useIsMobile } from '@/hooks/use-mobile';
 
 export const CampaignsList: React.FC = () => {
-  const { data: campaigns, isLoading } = useCampaigns();
+  const { data: campaigns = [], isLoading } = useCampaigns();
   const [searchTerm, setSearchTerm] = useState('');
   const [filters, setFilters] = useState<Record<string, string>>({
     status: 'all',
@@ -26,7 +26,7 @@ export const CampaignsList: React.FC = () => {
     return <LoadingState>Loading campaigns...</LoadingState>;
   }
 
-  const filteredCampaigns = campaigns?.filter((campaign) => {
+  const filteredCampaigns = (campaigns || []).filter((campaign) => {
     const matchesSearch = campaign.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          campaign.description?.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          campaign.target_audience?.toLowerCase().includes(searchTerm.toLowerCase());
@@ -78,7 +78,7 @@ export const CampaignsList: React.FC = () => {
   };
 
   const exportData = () => {
-    const csvData = filteredCampaigns.map(campaign => ({
+    const csvData = filteredCampaigns.map((campaign) => ({
       Name: campaign.name,
       Status: campaign.status,
       Budget: campaign.budget,
@@ -138,11 +138,14 @@ export const CampaignsList: React.FC = () => {
       title: 'Status',
       sortable: true,
       width: '120px',
-      render: (campaign) => (
-        <Badge variant={getStatusVariant(campaign.status)} className="w-fit">
-          {campaign.status.charAt(0).toUpperCase() + campaign.status.slice(1)}
-        </Badge>
-      )
+      render: (campaign) => {
+        const status = campaign.status || 'unknown';
+        return (
+          <Badge variant={getStatusVariant(status)} className="w-fit">
+            {status.charAt(0).toUpperCase() + status.slice(1)}
+          </Badge>
+        );
+      }
     },
     {
       key: 'budget',
@@ -174,14 +177,17 @@ export const CampaignsList: React.FC = () => {
       key: 'assignee',
       title: 'Manager',
       width: '150px',
-      render: (campaign) => campaign.profiles?.full_name ? (
-        <div className="flex items-center gap-1">
-          <Users className="h-3 w-3" />
-          <span>{campaign.profiles.full_name}</span>
-        </div>
-      ) : (
-        <span className="text-muted-foreground">Unassigned</span>
-      )
+      render: (campaign) => {
+        const assigneeName = campaign?.profiles?.full_name;
+        return assigneeName ? (
+          <div className="flex items-center gap-1">
+            <Users className="h-3 w-3" />
+            <span>{assigneeName}</span>
+          </div>
+        ) : (
+          <span className="text-muted-foreground">Unassigned</span>
+        );
+      }
     },
     {
       key: 'actions',
@@ -214,7 +220,7 @@ export const CampaignsList: React.FC = () => {
   ];
 
   // Mobile card items configuration
-  const mobileItems: MobileCardItem[] = filteredCampaigns.map(campaign => ({
+  const mobileItems: MobileCardItem[] = filteredCampaigns.map((campaign) => ({
     id: campaign.id,
     title: campaign.name,
     subtitle: campaign.description || undefined,
@@ -284,7 +290,7 @@ export const CampaignsList: React.FC = () => {
         />
       ) : (
         <DataTable
-          data={filteredCampaigns}
+          data={filteredCampaigns || []}
           columns={columns}
           title="Campaigns"
           loading={isLoading}

@@ -1,24 +1,67 @@
+// React
 import React from 'react';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, LineChart, Line, ComposedChart } from 'recharts';
+
+// UI Components
+import { 
+  Card, 
+  CardContent, 
+  CardDescription, 
+  CardHeader, 
+  CardTitle 
+} from '@/components/ui/card';
+
+// Recharts
+import {
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  ResponsiveContainer,
+  PieChart,
+  Pie,
+  Cell,
+  LineChart,
+  Line,
+  ComposedChart,
+  TooltipProps,
+  CellProps
+} from 'recharts';
+
+// Custom Hooks
 import { useCampaigns } from '@/hooks/useCampaigns';
 import { useLeadStats } from '@/hooks/useLeads';
 import { useExpenses } from '@/hooks/useExpenses';
 import { useTasks } from '@/hooks/useTasks';
 
-const COLORS = ['hsl(var(--primary))', 'hsl(var(--secondary))', 'hsl(var(--accent))', 'hsl(var(--muted))', 'hsl(var(--destructive))'];
+interface ChartDataItem {
+  name: string;
+  value: number;
+  id?: string;
+  month?: string;
+  amount?: number;
+}
+
+const COLORS = ['hsl(var(--primary))', 'hsl(var(--secondary))', 'hsl(var(--accent))', 'hsl(var(--muted))', 'hsl(var(--destructive))'] as const;
 
 export const AnalyticsCharts: React.FC = () => {
-  const { data: campaigns = [] } = useCampaigns();
+  const { data: campaignsData = [] } = useCampaigns();
   const { data: leadStats } = useLeadStats();
-  const { data: expenses = [] } = useExpenses();
-  const { data: tasks = [] } = useTasks();
+  const { data: expensesData = [] } = useExpenses();
+  const { data: tasksData = [] } = useTasks();
+  
+  // Ensure we have arrays and handle potential undefined values
+  const campaigns = Array.isArray(campaignsData) ? campaignsData : [];
+  const expenses = Array.isArray(expensesData) ? expensesData : [];
+  const tasks = Array.isArray(tasksData) ? tasksData : [];
 
   // Campaign status distribution
-  const campaignStatusData = campaigns.reduce((acc, campaign) => {
-    acc[campaign.status] = (acc[campaign.status] || 0) + 1;
+  const campaignStatusData = campaigns.reduce<Record<string, number>>((acc, campaign) => {
+    const status = campaign.status || 'unknown';
+    acc[status] = (acc[status] || 0) + 1;
     return acc;
-  }, {} as Record<string, number>);
+  }, {});
 
   const campaignChartData = Object.entries(campaignStatusData).map(([status, count]) => ({
     name: status.charAt(0).toUpperCase() + status.slice(1),
@@ -26,24 +69,35 @@ export const AnalyticsCharts: React.FC = () => {
   }));
 
   // Expense trends by month
-  const expensesByMonth = expenses.reduce((acc, expense) => {
-    const month = new Date(expense.expense_date).toLocaleString('default', { month: 'short', year: '2-digit' });
-    acc[month] = (acc[month] || 0) + Number(expense.amount);
+  const expensesByMonth = expenses.reduce<Record<string, number>>((acc, expense) => {
+    if (!expense.expense_date) return acc;
+    try {
+      const month = new Date(expense.expense_date).toLocaleString('default', { month: 'short', year: '2-digit' });
+      const amount = typeof expense.amount === 'number' ? expense.amount : parseFloat(expense.amount as string) || 0;
+      acc[month] = (acc[month] || 0) + amount;
+    } catch (error) {
+      console.error('Error processing expense date:', error);
+    }
     return acc;
-  }, {} as Record<string, number>);
+  }, {});
 
   const expenseChartData = Object.entries(expensesByMonth)
-    .slice(-6) // Last 6 months
+    .sort(([monthA], [monthB]) => {
+      // Sort by date (newest first)
+      return new Date(monthB).getTime() - new Date(monthA).getTime();
+    })
+    .slice(0, 6) // Get last 6 months
     .map(([month, amount]) => ({
       month,
-      amount: Math.round(amount),
+      amount: Math.round(amount * 100) / 100, // Round to 2 decimal places
     }));
 
   // Task completion status
-  const taskStatusData = tasks.reduce((acc, task) => {
-    acc[task.status] = (acc[task.status] || 0) + 1;
+  const taskStatusData = tasks.reduce<Record<string, number>>((acc, task) => {
+    const status = task.status || 'unknown';
+    acc[status] = (acc[status] || 0) + 1;
     return acc;
-  }, {} as Record<string, number>);
+  }, {});
 
   const taskChartData = Object.entries(taskStatusData).map(([status, count]) => ({
     name: status.charAt(0).toUpperCase() + status.slice(1),

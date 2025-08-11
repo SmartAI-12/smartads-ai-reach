@@ -1,8 +1,10 @@
 import React from 'react';
-import { useForm } from 'react-hook-form';
+import { useForm, type SubmitHandler, type UseFormReturn } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { useCreateVendor, type BtlChannel } from '@/hooks/useVendors';
+import type { BtlChannel } from '@/hooks/useVendors';
+import { useCreateVendor } from '@/hooks/useVendors';
+import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -22,7 +24,10 @@ const vendorSchema = z.object({
   status: z.enum(['active', 'inactive', 'suspended']).default('active'),
 });
 
-type VendorForm = z.infer<typeof vendorSchema>;
+type VendorFormValues = z.infer<typeof vendorSchema> & {
+  service_areas: string[];
+  specializations: BtlChannel[];
+};
 
 interface VendorFormProps {
   onSuccess?: () => void;
@@ -45,8 +50,8 @@ const CITIES = [
 export const VendorForm: React.FC<VendorFormProps> = ({ onSuccess }) => {
   const createVendorMutation = useCreateVendor();
 
-  const form = useForm<VendorForm>({
-    resolver: zodResolver(vendorSchema),
+  const form: UseFormReturn<VendorFormValues> = useForm<VendorFormValues>({
+    resolver: zodResolver(vendorSchema) as any,
     defaultValues: {
       company_name: '',
       contact_person: '',
@@ -60,15 +65,24 @@ export const VendorForm: React.FC<VendorFormProps> = ({ onSuccess }) => {
     },
   });
 
-  const onSubmit = async (data: VendorForm) => {
+  const onSubmit: SubmitHandler<VendorFormValues> = async (data) => {
     try {
+      // Get the current user ID from Supabase auth
+      const { data: { user } } = await supabase.auth.getUser();
+      
+      if (!user) {
+        throw new Error('You must be logged in to create a vendor');
+      }
+
       await createVendorMutation.mutateAsync({
         ...data,
-        created_by: '', // This will be set by the backend based on auth.uid()
+        created_by: user.id,
       });
+      
       onSuccess?.();
     } catch (error) {
       console.error('Error creating vendor:', error);
+      // The error will be handled by the mutation's onError handler
     }
   };
 

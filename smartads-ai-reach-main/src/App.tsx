@@ -12,6 +12,7 @@ import Index from "./pages/Index";
 import CampaignsPage from "./pages/CampaignsPage";
 import CreateCampaignPage from "./pages/CreateCampaignPage";
 import ClientsPage from "./pages/ClientsPage";
+import ClientDetailPage from "./pages/ClientDetailPage";
 import CreateClientPage from "./pages/CreateClientPage";
 import TasksPage from "./pages/TasksPage";
 import CreateTaskPage from "./pages/CreateTaskPage";
@@ -95,6 +96,16 @@ const App = () => (
                 <ProtectedRoute requiredRole="manager">
                   <AppLayout>
                     <CreateClientPage />
+                  </AppLayout>
+                </ProtectedRoute>
+              } 
+            />
+            <Route 
+              path="/clients/:id" 
+              element={
+                <ProtectedRoute>
+                  <AppLayout>
+                    <ClientDetailPage />
                   </AppLayout>
                 </ProtectedRoute>
               } 

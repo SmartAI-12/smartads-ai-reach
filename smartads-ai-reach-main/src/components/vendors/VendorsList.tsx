@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { VendorForm } from '@/components/forms/VendorForm';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 
 export const VendorsList: React.FC = () => {
   const { data: vendors, isLoading } = useVendors();
@@ -57,6 +57,9 @@ export const VendorsList: React.FC = () => {
           <DialogContent className="max-w-2xl">
             <DialogHeader>
               <DialogTitle>Create New Vendor</DialogTitle>
+              <DialogDescription>
+                Add a new vendor to your BTL campaign partners
+              </DialogDescription>
             </DialogHeader>
             <VendorForm onSuccess={() => setIsCreateDialogOpen(false)} />
           </DialogContent>
