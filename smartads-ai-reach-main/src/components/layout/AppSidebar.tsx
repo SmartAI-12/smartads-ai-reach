@@ -52,7 +52,9 @@ export const AppSidebar: React.FC = () => {
   const isActive = (path: string) => currentPath === path;
   
   const getNavCls = ({ isActive }: { isActive: boolean }) =>
-    isActive ? 'bg-sidebar-primary text-sidebar-primary-foreground font-medium border-l-2 border-sidebar-primary' : 'text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground';
+    isActive 
+      ? 'bg-sidebar-primary text-white font-medium border-l-2 border-sidebar-primary' 
+      : 'text-gray-900';
 
   const canAccessAdmin = profile?.role === 'admin' || profile?.role === 'manager';
   const isCollapsed = state === 'collapsed';

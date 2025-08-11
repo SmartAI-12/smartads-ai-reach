@@ -67,7 +67,7 @@ All colors MUST be HSL.
     --focus-ring-offset: 2px;
 
     --sidebar-background: 0 0% 100%;
-    --sidebar-foreground: 222.2 84% 4.9%;
+    --sidebar-foreground: 0 0% 0%; /* Changed to black for better visibility */
     --sidebar-primary: 217.2 91.2% 59.8%;
     --sidebar-primary-foreground: 0 0% 100%;
     --sidebar-accent: 217.2 91.2% 95%;

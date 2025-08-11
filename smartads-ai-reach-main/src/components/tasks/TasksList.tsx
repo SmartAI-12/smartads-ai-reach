@@ -23,6 +23,7 @@ export const TasksList: React.FC = () => {
   const [priorityFilter, setPriorityFilter] = useState<string>('all');
   const [visibleColumns, setVisibleColumns] = useState<string[]>(['completed', 'title', 'priority', 'status', 'assignee', 'due_date']);
   const navigate = useNavigate();
+  const isMobile = useIsMobile();
 
   if (isLoading) {
     return <LoadingState>Loading tasks...</LoadingState>;
@@ -137,8 +138,6 @@ export const TasksList: React.FC = () => {
     a.click();
     URL.revokeObjectURL(url);
   };
-
-  const isMobile = useIsMobile();
 
   // DataTable columns configuration
   const allColumns: Column<Task>[] = [

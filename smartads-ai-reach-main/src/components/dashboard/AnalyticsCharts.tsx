@@ -1,6 +1,6 @@
 import React from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, LineChart, Line } from 'recharts';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, LineChart, Line, ComposedChart } from 'recharts';
 import { useCampaigns } from '@/hooks/useCampaigns';
 import { useLeadStats } from '@/hooks/useLeads';
 import { useExpenses } from '@/hooks/useExpenses';
@@ -50,13 +50,17 @@ export const AnalyticsCharts: React.FC = () => {
     value: count,
   }));
 
-  // Lead conversion funnel
-  const leadFunnelData = leadStats?.statusCounts ? [
-    { name: 'New', value: leadStats.statusCounts.new || 0 },
-    { name: 'Contacted', value: leadStats.statusCounts.contacted || 0 },
-    { name: 'Qualified', value: leadStats.statusCounts.qualified || 0 },
-    { name: 'Converted', value: leadStats.statusCounts.converted || 0 },
-  ] : [];
+  // Lead conversion funnel with unique IDs
+  const leadFunnelData = React.useMemo(() => {
+    if (!leadStats?.statusCounts) return [];
+    
+    return [
+      { id: 'funnel-new', name: 'New', value: leadStats.statusCounts.new || 0 },
+      { id: 'funnel-contacted', name: 'Contacted', value: leadStats.statusCounts.contacted || 0 },
+      { id: 'funnel-qualified', name: 'Qualified', value: leadStats.statusCounts.qualified || 0 },
+      { id: 'funnel-converted', name: 'Converted', value: leadStats.statusCounts.converted || 0 },
+    ];
+  }, [leadStats]);
 
   return (
     <div className="grid gap-6 md:grid-cols-2">
@@ -130,13 +134,13 @@ export const AnalyticsCharts: React.FC = () => {
               <XAxis dataKey="name" />
               <YAxis />
               <Tooltip />
-              <Bar dataKey="value" fill="hsl(var(--secondary))" />
+              <Bar dataKey="value" fill="hsl(var(--secondary))" name="Tasks" key="task-status-bar" />
             </BarChart>
           </ResponsiveContainer>
         </CardContent>
       </Card>
 
-      {/* Lead Conversion Funnel */}
+      {/* Lead Conversion Funnel - Custom Implementation */}
       <Card>
         <CardHeader>
           <CardTitle>Lead Conversion Funnel</CardTitle>
@@ -144,13 +148,48 @@ export const AnalyticsCharts: React.FC = () => {
         </CardHeader>
         <CardContent>
           <ResponsiveContainer width="100%" height={300}>
-            <BarChart data={leadFunnelData} layout="horizontal">
-              <CartesianGrid strokeDasharray="3 3" />
-              <XAxis type="number" />
-              <YAxis type="category" dataKey="name" />
-              <Tooltip />
-              <Bar dataKey="value" fill="hsl(var(--accent))" />
-            </BarChart>
+            <ComposedChart
+              data={leadFunnelData}
+              layout="horizontal"
+              margin={{ top: 20, right: 30, left: 100, bottom: 5 }}
+              barGap={0}
+              barCategoryGap={0}
+            >
+              <CartesianGrid strokeDasharray="3 3" vertical={false} />
+              <XAxis 
+                type="number"
+                axisLine={false}
+                tickLine={false}
+                tickFormatter={(value) => value.toLocaleString()}
+              />
+              <YAxis 
+                dataKey="name"
+                type="category"
+                axisLine={false}
+                tickLine={false}
+                width={90}
+              />
+              <Tooltip 
+                formatter={(value) => [value, 'Leads']}
+                labelFormatter={(label) => `Status: ${label}`}
+              />
+              {leadFunnelData.map((item, index) => (
+                <Bar
+                  key={`bar-${item.id}`}
+                  dataKey="value"
+                  data={[item]}
+                  stackId="a"
+                  fill="hsl(var(--accent))"
+                  isAnimationActive={false}
+                  radius={index === leadFunnelData.length - 1 ? [0, 4, 4, 0] : 0}
+                >
+                  <Cell 
+                    key={`cell-${item.id}`}
+                    fill={`hsl(var(--accent))`}
+                  />
+                </Bar>
+              ))}
+            </ComposedChart>
           </ResponsiveContainer>
         </CardContent>
       </Card>

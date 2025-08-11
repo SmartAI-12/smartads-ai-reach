@@ -35,7 +35,7 @@ const Index = () => {
       <div className="p-6 space-y-8 min-h-screen bg-gradient-subtle">
         <div className="space-y-3">
           <h1 className="text-4xl font-bold tracking-tight bg-gradient-primary bg-clip-text text-transparent">
-            Welcome back, {profile?.full_name?.split(' ')[0] || 'User'}! 👋
+            Welcome back, {profile?.full_name?.split(' ')[0] || 'User'}! <span className="text-yellow-400">👋</span>
           </h1>
           <p className="text-lg text-muted-foreground">
             Here's your SmartAds BTL dashboard overview for today.
