@@ -102,7 +102,7 @@ export const ClientsList: React.FC = () => {
       key: 'name',
       title: 'Client',
       sortable: true,
-      render: (client) => (
+      render: (_value, client) => (
         <div className="space-y-1">
           <div className="flex items-center gap-2">
             <Building className="h-4 w-4 text-primary" />
@@ -119,7 +119,7 @@ export const ClientsList: React.FC = () => {
     {
       key: 'contact',
       title: 'Contact Info',
-      render: (client) => (
+      render: (_value, client) => (
         <div className="space-y-1">
           {client.email && (
             <div className="flex items-center gap-1 text-sm">
@@ -139,8 +139,8 @@ export const ClientsList: React.FC = () => {
     {
       key: 'address',
       title: 'Address',
-      render: (client) => client.address ? (
-        <span className="text-sm line-clamp-2">{client.address}</span>
+      render: (value) => value ? (
+        <span className="text-sm line-clamp-2">{value as string}</span>
       ) : (
         <span className="text-muted-foreground">No address</span>
       )
@@ -150,7 +150,7 @@ export const ClientsList: React.FC = () => {
       title: 'Status',
       sortable: true,
       width: '120px',
-      render: (client) => (
+      render: (_value, client) => (
         <Badge variant={client.is_active ? 'default' : 'secondary'}>
           {client.is_active ? 'Active' : 'Inactive'}
         </Badge>
@@ -161,9 +161,9 @@ export const ClientsList: React.FC = () => {
       title: 'Added',
       sortable: true,
       width: '120px',
-      render: (client) => (
+      render: (value) => (
         <span className="text-sm">
-          {new Date(client.created_at).toLocaleDateString()}
+          {new Date(value as string).toLocaleDateString()}
         </span>
       )
     },
@@ -171,7 +171,7 @@ export const ClientsList: React.FC = () => {
       key: 'actions',
       title: '',
       width: '60px',
-      render: (client) => (
+      render: (_value, client) => (
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button variant="ghost" className="h-8 w-8 p-0">
