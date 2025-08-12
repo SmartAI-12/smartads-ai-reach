@@ -4,7 +4,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import * as z from 'zod';
-import { CalendarIcon, Loader2, ArrowLeft } from 'lucide-react';
+import { CalendarIcon, Loader2, ArrowLeft, MapPin, Megaphone, Factory } from 'lucide-react';
 import { format } from 'date-fns';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -39,6 +39,18 @@ const campaignSchema = z.object({
   objectives: z.string().optional(),
   target_audience: z.string().optional(),
   assigned_to: z.string().optional(),
+  channel_type: z.enum([
+    'metro_branding',
+    'mall_activation',
+    'pamphlet_distribution',
+    'street_branding',
+    'transit_advertising',
+    'experiential_marketing',
+  ]).optional(),
+  city: z.string().optional(),
+  vendor_id: z.string().optional(),
+  status: z.enum(['draft', 'active', 'paused', 'completed', 'cancelled']).default('draft'),
+  kpi_targets: z.string().optional(),
 }).refine((data) => {
   if (data.start_date && data.end_date) {
     return data.start_date <= data.end_date;
@@ -49,7 +61,7 @@ const campaignSchema = z.object({
   path: ["end_date"],
 });
 
-type CampaignForm = z.infer<typeof campaignSchema>;
+type CampaignForm = z.output<typeof campaignSchema>;
 
 const CreateCampaignPage: React.FC = () => {
   const navigate = useNavigate();
@@ -67,6 +79,7 @@ const CreateCampaignPage: React.FC = () => {
       client_id: '',
       objectives: '',
       target_audience: '',
+      status: 'draft',
     },
   });
 
@@ -100,15 +113,41 @@ const CreateCampaignPage: React.FC = () => {
     },
   });
 
+  // Fetch vendors for assignment
+  const { data: vendors } = useQuery({
+    queryKey: ['vendors'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('vendors')
+        .select('id, company_name')
+        .order('company_name');
+      if (error) throw error;
+      return data;
+    },
+  });
+
   const createCampaignMutation = useMutation({
     mutationFn: async (data: CampaignForm) => {
+      let parsedKpis: any = null;
+      if (data.kpi_targets) {
+        try {
+          parsedKpis = JSON.parse(data.kpi_targets);
+        } catch {
+          parsedKpis = null;
+        }
+      }
+
       const campaignData = {
         ...data,
         budget: data.budget || null,
         start_date: data.start_date ? format(data.start_date, 'yyyy-MM-dd') : null,
         end_date: data.end_date ? format(data.end_date, 'yyyy-MM-dd') : null,
         created_by: profile?.id,
-        status: 'draft' as const,
+        status: data.status || 'draft',
+        channel_type: data.channel_type || null,
+        city: data.city || null,
+        vendor_id: data.vendor_id || null,
+        kpi_targets: parsedKpis,
       };
 
       const { data: campaign, error } = await supabase
@@ -226,6 +265,48 @@ const CreateCampaignPage: React.FC = () => {
                   </p>
                 )}
               </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="space-y-2">
+                  <Label>Channel Type</Label>
+                  <Select onValueChange={(v) => form.setValue('channel_type', v as any)}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select channel" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="metro_branding">Metro Branding</SelectItem>
+                      <SelectItem value="mall_activation">Mall Activation</SelectItem>
+                      <SelectItem value="pamphlet_distribution">Pamphlet Distribution</SelectItem>
+                      <SelectItem value="street_branding">Street Branding</SelectItem>
+                      <SelectItem value="transit_advertising">Transit Advertising</SelectItem>
+                      <SelectItem value="experiential_marketing">Experiential Marketing</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="city">City</Label>
+                  <div className="relative">
+                    <Input id="city" placeholder="Enter city" {...form.register('city')} className="pl-8" />
+                    <MapPin className="absolute left-2 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <Label>Vendor</Label>
+                  <Select onValueChange={(v) => form.setValue('vendor_id', v)}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Assign vendor (optional)" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="">Unassigned</SelectItem>
+                      {vendors?.map((v: any) => (
+                        <SelectItem key={v.id} value={v.id}>{v.company_name}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
             </CardContent>
           </Card>
 
@@ -331,6 +412,18 @@ const CreateCampaignPage: React.FC = () => {
               </div>
 
               <div className="space-y-2">
+                <Label htmlFor="kpi_targets">KPI Targets (JSON)</Label>
+                <Textarea
+                  id="kpi_targets"
+                  placeholder='{"leads": 250, "footfall": 10000}'
+                  rows={3}
+                  className="font-mono"
+                  {...form.register('kpi_targets')}
+                />
+                <p className="text-xs text-muted-foreground">Paste JSON. Invalid JSON will be ignored.</p>
+              </div>
+
+              <div className="space-y-2">
                 <Label htmlFor="assigned_to">Assign To</Label>
                 <Select onValueChange={(value) => form.setValue('assigned_to', value)}>
                   <SelectTrigger>
@@ -342,6 +435,22 @@ const CreateCampaignPage: React.FC = () => {
                         {member.full_name} ({member.role})
                       </SelectItem>
                     ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="status">Status</Label>
+                <Select onValueChange={(v) => form.setValue('status', v as any)} defaultValue={form.getValues('status')}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="draft">Draft</SelectItem>
+                    <SelectItem value="active">Active</SelectItem>
+                    <SelectItem value="paused">Paused</SelectItem>
+                    <SelectItem value="completed">Completed</SelectItem>
+                    <SelectItem value="cancelled">Cancelled</SelectItem>
                   </SelectContent>
                 </Select>
               </div>

@@ -6,16 +6,27 @@ export interface Campaign {
   id: string;
   name: string;
   description?: string;
-  status: 'draft' | 'active' | 'paused' | 'completed';
+  status: 'draft' | 'active' | 'paused' | 'completed' | 'cancelled';
   budget?: number;
   start_date?: string;
   end_date?: string;
   client_id: string;
   created_by: string;
   assigned_to?: string;
+  vendor_id?: string | null;
+  channel_type?:
+    | 'metro_branding'
+    | 'mall_activation'
+    | 'pamphlet_distribution'
+    | 'street_branding'
+    | 'transit_advertising'
+    | 'experiential_marketing'
+    | null;
+  city?: string | null;
   target_audience?: string;
   objectives?: string;
   kpis?: any;
+  kpi_targets?: any;
   created_at: string;
   updated_at: string;
   clients?: {

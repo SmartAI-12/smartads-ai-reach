@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
-import { MoreHorizontal, Plus, Calendar, DollarSign, Users, Eye, Edit, Trash2, Target } from 'lucide-react';
+import { MoreHorizontal, Plus, Calendar, DollarSign, Users, Eye, Edit, Trash2, Target, MapPin, Megaphone } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useCampaigns } from '@/hooks/useCampaigns';
 import { LoadingState } from '@/components/ui/loading';
@@ -54,7 +54,8 @@ export const CampaignsList: React.FC = () => {
         { value: 'draft', label: 'Draft' },
         { value: 'active', label: 'Active' },
         { value: 'paused', label: 'Paused' },
-        { value: 'completed', label: 'Completed' }
+        { value: 'completed', label: 'Completed' },
+        { value: 'cancelled', label: 'Cancelled' }
       ]
     },
     {
@@ -111,6 +112,8 @@ export const CampaignsList: React.FC = () => {
         return 'outline';
       case 'draft':
         return 'secondary';
+      case 'cancelled':
+        return 'outline';
       default:
         return 'outline';
     }
@@ -130,6 +133,28 @@ export const CampaignsList: React.FC = () => {
               {campaign.clients.name}
             </p>
           )}
+        </div>
+      )
+    },
+    {
+      key: 'channel_type',
+      title: 'Channel',
+      width: '160px',
+      render: (campaign) => (
+        <div className="flex items-center gap-1">
+          <Megaphone className="h-3 w-3" />
+          <span className="capitalize">{(campaign.channel_type || '').replace(/_/g, ' ') || '—'}</span>
+        </div>
+      )
+    },
+    {
+      key: 'city',
+      title: 'City',
+      width: '120px',
+      render: (campaign) => (
+        <div className="flex items-center gap-1">
+          <MapPin className="h-3 w-3" />
+          <span>{campaign.city || '—'}</span>
         </div>
       )
     },
