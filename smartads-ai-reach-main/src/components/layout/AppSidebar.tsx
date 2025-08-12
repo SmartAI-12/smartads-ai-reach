@@ -37,6 +37,11 @@ const mainItems = [
   { title: 'Analytics', url: '/analytics', icon: BarChart3 },
 ];
 
+const vendorItems = [
+  { title: 'My Campaigns', url: '/vendor/campaigns', icon: Target },
+  { title: 'My Tasks', url: '/vendor/tasks', icon: CheckSquare },
+];
+
 const adminItems = [
   { title: 'Clients', url: '/clients', icon: Users },
   { title: 'Vendors', url: '/vendors', icon: Truck },
@@ -54,9 +59,10 @@ export const AppSidebar: React.FC = () => {
   const getNavCls = ({ isActive }: { isActive: boolean }) =>
     isActive 
       ? 'bg-sidebar-primary text-white font-medium border-l-2 border-sidebar-primary' 
-      : 'text-gray-900';
+      : 'text-black hover:text-sidebar-primary';
 
   const canAccessAdmin = profile?.role === 'admin' || profile?.role === 'manager';
+  const isVendor = profile?.role === 'vendor';
   const isCollapsed = state === 'collapsed';
 
   return (
@@ -65,7 +71,7 @@ export const AppSidebar: React.FC = () => {
         {!isCollapsed && (
           <h2 className="text-lg font-semibold text-sidebar-primary">SmartAds BTL</h2>
         )}
-        <SidebarTrigger className="text-sidebar-foreground hover:text-sidebar-primary">
+        <SidebarTrigger className="text-black hover:text-sidebar-primary">
           <Menu className="h-4 w-4" />
         </SidebarTrigger>
       </div>
@@ -73,13 +79,13 @@ export const AppSidebar: React.FC = () => {
       <SidebarContent className="bg-sidebar-background">
         <SidebarGroup>
           {!isCollapsed && (
-            <SidebarGroupLabel className="text-sidebar-foreground font-semibold text-xs uppercase tracking-wider px-4 py-2">
-              Main Menu
+            <SidebarGroupLabel className="text-black font-semibold text-xs uppercase tracking-wider px-4 py-2">
+              {isVendor ? 'Vendor Menu' : 'Main Menu'}
             </SidebarGroupLabel>
           )}
           <SidebarGroupContent>
             <SidebarMenu>
-              {mainItems.map((item) => (
+              {(isVendor ? vendorItems : mainItems).map((item) => (
                 <SidebarMenuItem key={item.title}>
                   <SidebarMenuButton asChild>
                     <NavLink to={item.url} end className={getNavCls}>
@@ -96,7 +102,7 @@ export const AppSidebar: React.FC = () => {
         {canAccessAdmin && (
           <SidebarGroup>
             {!isCollapsed && (
-              <SidebarGroupLabel className="text-sidebar-foreground font-semibold text-xs uppercase tracking-wider px-4 py-2 mt-4">
+              <SidebarGroupLabel className="text-black font-semibold text-xs uppercase tracking-wider px-4 py-2 mt-4">
                 Administration
               </SidebarGroupLabel>
             )}

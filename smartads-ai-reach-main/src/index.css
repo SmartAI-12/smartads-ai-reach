@@ -67,7 +67,7 @@ All colors MUST be HSL.
     --focus-ring-offset: 2px;
 
     --sidebar-background: 0 0% 100%;
-    --sidebar-foreground: 0 0% 0%; /* Changed to black for better visibility */
+    --sidebar-foreground: 0 0% 0%; /* Pure black for maximum visibility */
     --sidebar-primary: 217.2 91.2% 59.8%;
     --sidebar-primary-foreground: 0 0% 100%;
     --sidebar-accent: 217.2 91.2% 95%;
@@ -144,5 +144,41 @@ All colors MUST be HSL.
 
   body {
     @apply bg-background text-foreground;
+  }
+}
+
+@layer components {
+  /* Ensure sidebar menu buttons have proper text color */
+  [data-sidebar="menu-button"] {
+    color: hsl(var(--sidebar-foreground)) !important;
+  }
+  
+  /* Ensure sidebar menu items have proper text color */
+  [data-sidebar="menu-button"] span {
+    color: inherit !important;
+  }
+  
+  /* Ensure sidebar icons have proper color */
+  [data-sidebar="menu-button"] svg {
+    color: inherit !important;
+  }
+  
+  /* Ensure NavLink styles are applied properly */
+  [data-sidebar="menu-button"] a {
+    color: inherit !important;
+  }
+  
+  /* Override any conflicting styles */
+  .text-sidebar-foreground {
+    color: hsl(var(--sidebar-foreground)) !important;
+  }
+  
+  /* Dark mode overrides */
+  .dark [data-sidebar="menu-button"] {
+    color: hsl(var(--sidebar-foreground)) !important;
+  }
+  
+  .dark .text-black {
+    color: hsl(var(--sidebar-foreground)) !important;
   }
 }

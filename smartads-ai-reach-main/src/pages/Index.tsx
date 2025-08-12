@@ -12,12 +12,18 @@ import { useCampaigns } from '@/hooks/useCampaigns';
 import { useTasks } from '@/hooks/useTasks';
 import { DashboardSkeleton } from '@/components/ui/dashboard-skeleton';
 import { PerformanceMonitor } from '@/components/ui/performance-monitor';
+import { VendorDashboard } from '@/components/dashboard/VendorDashboard';
 
 const Index = () => {
   const { profile } = useAuth();
   const { data: stats, isLoading: statsLoading } = useDashboardStats();
   const { data: campaigns, isLoading: campaignsLoading } = useCampaigns();
   const { data: tasks, isLoading: tasksLoading } = useTasks();
+
+  // Show vendor dashboard if user is a vendor
+  if (profile?.role === 'vendor') {
+    return <VendorDashboard />;
+  }
 
   if (statsLoading || campaignsLoading || tasksLoading) {
     return <DashboardSkeleton />;

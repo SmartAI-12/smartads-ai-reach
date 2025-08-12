@@ -26,6 +26,8 @@ import UsersPage from "./pages/UsersPage";
 import VendorsPage from "./pages/VendorsPage";
 import ProfilePage from "./pages/ProfilePage";
 import { AnalyticsPage } from "./pages/AnalyticsPage";
+import { VendorCampaignsPage } from "./pages/VendorCampaignsPage";
+import { VendorTasksPage } from "./pages/VendorTasksPage";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -246,6 +248,27 @@ const App = () => (
                 <ProtectedRoute>
                   <AppLayout>
                     <AnalyticsPage />
+                  </AppLayout>
+                </ProtectedRoute>
+              } 
+            />
+            {/* Vendor-specific routes */}
+            <Route 
+              path="/vendor/campaigns" 
+              element={
+                <ProtectedRoute requiredRole="vendor">
+                  <AppLayout>
+                    <VendorCampaignsPage />
+                  </AppLayout>
+                </ProtectedRoute>
+              } 
+            />
+            <Route 
+              path="/vendor/tasks" 
+              element={
+                <ProtectedRoute requiredRole="vendor">
+                  <AppLayout>
+                    <VendorTasksPage />
                   </AppLayout>
                 </ProtectedRoute>
               } 
