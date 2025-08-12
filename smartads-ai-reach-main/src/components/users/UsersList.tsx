@@ -1,10 +1,11 @@
-import React, { useState } from 'react';
-import { UserPlus, Edit, MoreHorizontal } from 'lucide-react';
+import React, { useState, useRef, ChangeEvent } from 'react';
+import { UserPlus, Edit, MoreHorizontal, Upload, Clock, Activity, BarChart2, Calendar, Briefcase, Building2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { format } from 'date-fns';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
@@ -23,7 +24,8 @@ import { AdvancedFilters, FilterDefinition } from '@/components/ui/advanced-filt
 import { PullToRefresh } from '@/components/ui/pull-to-refresh';
 import { SwipeActions } from '@/components/ui/swipe-actions';
 
-interface User {
+// Database user type (matches the database schema)
+type DatabaseUser = {
   id: string;
   user_id: string;
   full_name: string;
@@ -33,6 +35,26 @@ interface User {
   avatar_url?: string;
   phone?: string;
   created_at: string;
+  updated_at?: string;
+  last_login_at?: string;
+  last_activity_at?: string;
+  login_count?: number;
+  metadata?: any;
+};
+
+// Extended user type for the UI
+interface User extends Omit<DatabaseUser, 'role' | 'metadata'> {
+  role: 'admin' | 'manager' | 'executive' | 'client' | 'vendor';
+  metadata?: {
+    department?: string;
+    position?: string;
+    join_date?: string;
+  };
+  activity_metrics?: {
+    tasks_completed?: number;
+    campaigns_managed?: number;
+    last_active_campaign?: string;
+  };
 }
 
 const UsersList: React.FC = () => {
@@ -45,9 +67,15 @@ const UsersList: React.FC = () => {
   const [formData, setFormData] = useState({
     full_name: '',
     email: '',
-    role: 'executive' as 'admin' | 'manager' | 'executive',
-    phone: ''
+    role: 'executive' as 'admin' | 'manager' | 'executive' | 'client' | 'vendor',
+    phone: '',
+    department: '',
+    position: '',
+    join_date: new Date().toISOString().split('T')[0]
   });
+  const [avatarFile, setAvatarFile] = useState<File | null>(null);
+  const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const [visibleColumns, setVisibleColumns] = useState<ColumnDefinition[]>([
     { key: 'user', title: 'User', visible: true, required: true },
     { key: 'role', title: 'Role', visible: true },
@@ -67,22 +95,75 @@ const UsersList: React.FC = () => {
         .order('created_at', { ascending: false });
 
       if (error) throw error;
-      return data as User[];
+      
+      // Transform database users to our extended User type
+      return (data as DatabaseUser[]).map(user => ({
+        ...user,
+        role: user.role as User['role'], // This will include our extended roles
+        metadata: user.metadata || {},
+        activity_metrics: {
+          tasks_completed: 0,
+          campaigns_managed: 0,
+          ...(user as any).activity_metrics
+        }
+      })) as User[];
     },
   });
+
+  // Upload avatar to storage
+  const uploadAvatar = async (userId: string, file: File) => {
+    const fileExt = file.name.split('.').pop();
+    const fileName = `${userId}-${Math.random().toString(36).substring(2, 15)}.${fileExt}`;
+    const filePath = `avatars/${fileName}`;
+    
+    const { error: uploadError } = await supabase.storage
+      .from('user-avatars')
+      .upload(filePath, file);
+
+    if (uploadError) throw uploadError;
+
+    // Get public URL
+    const { data: { publicUrl } } = supabase.storage
+      .from('user-avatars')
+      .getPublicUrl(filePath);
+
+    return publicUrl;
+  };
 
   // Create user mutation
   const createUserMutation = useMutation({
     mutationFn: async (userData: typeof formData) => {
+      let avatarUrl = null;
+      
+      // Upload avatar if exists
+      if (avatarFile) {
+        avatarUrl = await uploadAvatar(crypto.randomUUID(), avatarFile);
+      }
+
+      // Prepare user data for database
+      const dbUser = {
+        user_id: crypto.randomUUID(),
+        full_name: userData.full_name,
+        email: userData.email,
+        role: userData.role as DatabaseUser['role'], // Cast to database role type
+        phone: userData.phone,
+        avatar_url: avatarUrl,
+        is_active: true,
+        metadata: {
+          department: userData.department,
+          position: userData.position,
+          join_date: userData.join_date
+        },
+        last_login_at: null,
+        last_activity_at: null,
+        login_count: 0,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      };
+
       const { error } = await supabase
         .from('profiles')
-        .insert([{
-          user_id: crypto.randomUUID(), // Temporary - would be from auth
-          full_name: userData.full_name,
-          email: userData.email,
-          role: userData.role,
-          phone: userData.phone,
-        }]);
+        .insert([dbUser]);
 
       if (error) throw error;
     },
@@ -90,7 +171,15 @@ const UsersList: React.FC = () => {
       queryClient.invalidateQueries({ queryKey: ['users'] });
       toast({ title: "User created successfully" });
       setShowCreateDialog(false);
-      setFormData({ full_name: '', email: '', role: 'executive', phone: '' });
+      setFormData({ 
+        full_name: '', 
+        email: '', 
+        role: 'executive', 
+        phone: '',
+        department: '',
+        position: '',
+        join_date: new Date().toISOString().split('T')[0]
+      });
     },
     onError: (error: any) => {
       toast({ 
@@ -104,14 +193,26 @@ const UsersList: React.FC = () => {
   // Update user mutation
   const updateUserMutation = useMutation({
     mutationFn: async (userData: typeof formData & { id: string }) => {
+      let avatarUrl = avatarPreview?.startsWith('blob:') ? await uploadAvatar(userData.id, avatarFile!) : avatarPreview || null;
+      
+      // Prepare update data
+      const updateData = {
+        full_name: userData.full_name,
+        email: userData.email,
+        role: userData.role as DatabaseUser['role'], // Cast to database role type
+        phone: userData.phone,
+        avatar_url: avatarUrl,
+        metadata: {
+          department: userData.department,
+          position: userData.position,
+          join_date: userData.join_date
+        },
+        updated_at: new Date().toISOString()
+      };
+
       const { error } = await supabase
         .from('profiles')
-        .update({
-          full_name: userData.full_name,
-          email: userData.email,
-          role: userData.role,
-          phone: userData.phone,
-        })
+        .update(updateData)
         .eq('id', userData.id);
 
       if (error) throw error;
@@ -120,7 +221,15 @@ const UsersList: React.FC = () => {
       queryClient.invalidateQueries({ queryKey: ['users'] });
       toast({ title: "User updated successfully" });
       setEditingUser(null);
-      setFormData({ full_name: '', email: '', role: 'executive', phone: '' });
+      setFormData({ 
+        full_name: '', 
+        email: '', 
+        role: 'executive', 
+        phone: '',
+        department: '',
+        position: '',
+        join_date: new Date().toISOString().split('T')[0]
+      });
     },
     onError: (error: any) => {
       toast({ 
@@ -156,14 +265,32 @@ const UsersList: React.FC = () => {
     },
   });
 
+  const handleFileChange = (e: ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+      const file = e.target.files[0];
+      setAvatarFile(file);
+      setAvatarPreview(URL.createObjectURL(file));
+    }
+  };
+
+  const triggerFileInput = () => {
+    fileInputRef.current?.click();
+  };
+
   const openEditDialog = (user: User) => {
     setEditingUser(user);
     setFormData({
       full_name: user.full_name,
       email: user.email,
       role: user.role,
-      phone: user.phone || ''
+      phone: user.phone || '',
+      department: user.metadata?.department || '',
+      position: user.metadata?.position || '',
+      join_date: user.metadata?.join_date || new Date().toISOString().split('T')[0]
     });
+    if (user.avatar_url) {
+      setAvatarPreview(user.avatar_url);
+    }
   };
 
   const getRoleBadgeVariant = (role: string) => {
@@ -171,8 +298,27 @@ const UsersList: React.FC = () => {
       case 'admin': return 'destructive';
       case 'manager': return 'default';
       case 'executive': return 'secondary';
+      case 'client': return 'outline';
+      case 'vendor': return 'secondary';
       default: return 'secondary';
     }
+  };
+
+  const getRoleDisplayName = (role: string) => {
+    return role.charAt(0).toUpperCase() + role.slice(1);
+  };
+
+  const formatLastActivity = (dateString?: string) => {
+    if (!dateString) return 'Never';
+    
+    const date = new Date(dateString);
+    const now = new Date();
+    const diffInHours = Math.floor((now.getTime() - date.getTime()) / (1000 * 60 * 60));
+    
+    if (diffInHours < 1) return 'Just now';
+    if (diffInHours < 24) return `${diffInHours}h ago`;
+    if (diffInHours < 168) return `${Math.floor(diffInHours / 24)}d ago`;
+    return date.toLocaleDateString();
   };
 
   const filteredUsers = users.filter(user =>
@@ -293,9 +439,56 @@ const UsersList: React.FC = () => {
       sortable: true,
       width: '120px',
       render: (user) => (
-        <Badge variant={getRoleBadgeVariant(user.role)}>
-          {user.role.charAt(0).toUpperCase() + user.role.slice(1)}
-        </Badge>
+        <div className="flex flex-col">
+          <Badge variant={getRoleBadgeVariant(user.role)} className="w-fit">
+            {getRoleDisplayName(user.role)}
+          </Badge>
+          {user.metadata?.department && (
+            <span className="text-xs text-muted-foreground">{user.metadata.department}</span>
+          )}
+        </div>
+      )
+    },
+    {
+      key: 'activity',
+      title: 'Activity',
+      width: '180px',
+      render: (user) => (
+        <div className="flex flex-col gap-1">
+          <div className="flex items-center text-sm">
+            <Clock className="h-3.5 w-3.5 mr-1.5 text-muted-foreground" />
+            <span className="text-xs text-muted-foreground">
+              {user.last_login_at ? `Last login: ${formatLastActivity(user.last_login_at)}` : 'Never logged in'}
+            </span>
+          </div>
+          <div className="flex items-center text-sm">
+            <Activity className="h-3.5 w-3.5 mr-1.5 text-muted-foreground" />
+            <span className="text-xs text-muted-foreground">
+              {user.last_activity_at ? `Active ${formatLastActivity(user.last_activity_at)}` : 'No activity'}
+            </span>
+          </div>
+        </div>
+      )
+    },
+    {
+      key: 'metrics',
+      title: 'Metrics',
+      width: '160px',
+      render: (user) => (
+        <div className="flex flex-col gap-1">
+          <div className="flex items-center text-sm">
+            <BarChart2 className="h-3.5 w-3.5 mr-1.5 text-muted-foreground" />
+            <span className="text-xs text-muted-foreground">
+              {user.activity_metrics?.tasks_completed || 0} tasks
+            </span>
+          </div>
+          <div className="flex items-center text-sm">
+            <Building2 className="h-3.5 w-3.5 mr-1.5 text-muted-foreground" />
+            <span className="text-xs text-muted-foreground">
+              {user.activity_metrics?.campaigns_managed || 0} campaigns
+            </span>
+          </div>
+        </div>
       )
     },
     {
@@ -347,6 +540,24 @@ const UsersList: React.FC = () => {
   const columns = allColumns.filter(col => 
     visibleColumns.find(vc => vc.key === col.key)?.visible
   );
+
+  // Reset form when dialog is closed
+  const handleDialogOpenChange = (open: boolean) => {
+    if (!open) {
+      setShowCreateDialog(false);
+      setAvatarFile(null);
+      setAvatarPreview(null);
+      setFormData({
+        full_name: '',
+        email: '',
+        role: 'executive',
+        phone: '',
+        department: '',
+        position: '',
+        join_date: new Date().toISOString().split('T')[0]
+      });
+    }
+  };
 
   // Mobile card items configuration
   const mobileItems: MobileCardItem[] = filteredUsers.map(user => ({
@@ -422,8 +633,9 @@ const UsersList: React.FC = () => {
           <h1 className="text-3xl font-bold">User Management</h1>
           <p className="text-muted-foreground">Manage team members and their roles</p>
         </div>
+      </div>
         
-        <Dialog open={showCreateDialog} onOpenChange={setShowCreateDialog}>
+        <Dialog open={showCreateDialog} onOpenChange={handleDialogOpenChange}>
           <DialogTrigger asChild>
             <Button>
               <UserPlus className="h-4 w-4 mr-2" />
@@ -438,46 +650,107 @@ const UsersList: React.FC = () => {
               </DialogDescription>
             </DialogHeader>
             <div className="space-y-4">
-              <div>
-                <Label htmlFor="name">Full Name</Label>
-                <Input
-                  id="name"
-                  value={formData.full_name}
-                  onChange={(e) => setFormData(prev => ({ ...prev, full_name: e.target.value }))}
-                  placeholder="Enter full name"
-                />
+              <div className="flex flex-col items-center mb-4">
+                <div className="relative group">
+                  <Avatar className="h-24 w-24 mb-2 cursor-pointer" onClick={triggerFileInput}>
+                    <AvatarImage src={avatarPreview || ''} />
+                    <AvatarFallback className="text-2xl">
+                      {formData.full_name ? formData.full_name.split(' ').map(n => n[0]).join('') : 'U'}
+                    </AvatarFallback>
+                    <div className="absolute inset-0 bg-black bg-opacity-50 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity rounded-full">
+                      <Upload className="h-6 w-6 text-white" />
+                    </div>
+                  </Avatar>
+                  <input
+                    type="file"
+                    ref={fileInputRef}
+                    onChange={handleFileChange}
+                    accept="image/*"
+                    className="hidden"
+                  />
+                </div>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={triggerFileInput}
+                  className="text-sm text-muted-foreground"
+                >
+                  Change photo
+                </Button>
               </div>
-              <div>
-                <Label htmlFor="email">Email</Label>
-                <Input
-                  id="email"
-                  type="email"
-                  value={formData.email}
-                  onChange={(e) => setFormData(prev => ({ ...prev, email: e.target.value }))}
-                  placeholder="Enter email address"
-                />
-              </div>
-              <div>
-                <Label htmlFor="phone">Phone</Label>
-                <Input
-                  id="phone"
-                  value={formData.phone}
-                  onChange={(e) => setFormData(prev => ({ ...prev, phone: e.target.value }))}
-                  placeholder="Enter phone number"
-                />
-              </div>
-              <div>
-                <Label htmlFor="role">Role</Label>
-                <Select value={formData.role} onValueChange={(value: any) => setFormData(prev => ({ ...prev, role: value }))}>
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="executive">Executive</SelectItem>
-                    <SelectItem value="manager">Manager</SelectItem>
-                    <SelectItem value="admin">Admin</SelectItem>
-                  </SelectContent>
-                </Select>
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <Label htmlFor="name">Full Name</Label>
+                  <Input
+                    id="name"
+                    value={formData.full_name}
+                    onChange={(e) => setFormData(prev => ({ ...prev, full_name: e.target.value }))}
+                    placeholder="Enter full name"
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="email">Email</Label>
+                  <Input
+                    id="email"
+                    type="email"
+                    value={formData.email}
+                    onChange={(e) => setFormData(prev => ({ ...prev, email: e.target.value }))}
+                    placeholder="Enter email address"
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="phone">Phone</Label>
+                  <Input
+                    id="phone"
+                    value={formData.phone}
+                    onChange={(e) => setFormData(prev => ({ ...prev, phone: e.target.value }))}
+                    placeholder="Enter phone number"
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="department">Department</Label>
+                  <Input
+                    id="department"
+                    value={formData.department}
+                    onChange={(e) => setFormData(prev => ({ ...prev, department: e.target.value }))}
+                    placeholder="Enter department"
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="position">Position</Label>
+                  <Input
+                    id="position"
+                    value={formData.position}
+                    onChange={(e) => setFormData(prev => ({ ...prev, position: e.target.value }))}
+                    placeholder="Enter position"
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="join_date">Join Date</Label>
+                  <Input
+                    id="join_date"
+                    type="date"
+                    value={formData.join_date}
+                    onChange={(e) => setFormData(prev => ({ ...prev, join_date: e.target.value }))}
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="role">Role</Label>
+                  <Select value={formData.role} onValueChange={(value: any) => setFormData(prev => ({ ...prev, role: value }))}>
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="admin">Admin</SelectItem>
+                      <SelectItem value="manager">Manager</SelectItem>
+                      <SelectItem value="executive">Executive</SelectItem>
+                      <SelectItem value="client">Client</SelectItem>
+                      <SelectItem value="vendor">Vendor</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
               </div>
             </div>
             <DialogFooter>
@@ -549,7 +822,17 @@ const UsersList: React.FC = () => {
       )}
 
       {/* Edit User Dialog */}
-      <Dialog open={!!editingUser} onOpenChange={(open) => !open && setEditingUser(null)}>
+      <Dialog 
+        open={!!editingUser} 
+        onOpenChange={(open) => {
+          if (!open) {
+            setEditingUser(null);
+            setAvatarFile(null);
+            setAvatarPreview(null);
+          }
+        }}
+      >
+      
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Edit User</DialogTitle>
@@ -558,63 +841,131 @@ const UsersList: React.FC = () => {
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
-            <div>
-              <Label htmlFor="edit-name">Full Name</Label>
-              <Input
-                id="edit-name"
-                value={formData.full_name}
-                onChange={(e) => setFormData(prev => ({ ...prev, full_name: e.target.value }))}
-                placeholder="Enter full name"
-              />
+            <div className="flex flex-col items-center mb-4">
+              <div className="relative group">
+                <Avatar className="h-24 w-24 mb-2 cursor-pointer" onClick={triggerFileInput}>
+                  <AvatarImage src={avatarPreview || ''} />
+                  <AvatarFallback className="text-2xl">
+                    {formData.full_name ? formData.full_name.split(' ').map(n => n[0]).join('') : 'U'}
+                  </AvatarFallback>
+                  <div className="absolute inset-0 bg-black bg-opacity-50 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity rounded-full">
+                    <Upload className="h-6 w-6 text-white" />
+                  </div>
+                </Avatar>
+                <input
+                  type="file"
+                  ref={fileInputRef}
+                  onChange={handleFileChange}
+                  accept="image/*"
+                  className="hidden"
+                />
+              </div>
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                onClick={triggerFileInput}
+                className="text-sm text-muted-foreground"
+              >
+                Change photo
+              </Button>
             </div>
-            <div>
-              <Label htmlFor="edit-email">Email</Label>
-              <Input
-                id="edit-email"
-                type="email"
-                value={formData.email}
-                onChange={(e) => setFormData(prev => ({ ...prev, email: e.target.value }))}
-                placeholder="Enter email address"
-              />
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <Label htmlFor="edit-name">Full Name</Label>
+                <Input
+                  id="edit-name"
+                  value={formData.full_name}
+                  onChange={(e) => setFormData(prev => ({ ...prev, full_name: e.target.value }))}
+                  placeholder="Enter full name"
+                />
+              </div>
+              <div>
+                <Label htmlFor="edit-email">Email</Label>
+                <Input
+                  id="edit-email"
+                  type="email"
+                  value={formData.email}
+                  onChange={(e) => setFormData(prev => ({ ...prev, email: e.target.value }))}
+                  placeholder="Enter email address"
+                />
+              </div>
+              <div>
+                <Label htmlFor="edit-phone">Phone</Label>
+                <Input
+                  id="edit-phone"
+                  value={formData.phone}
+                  onChange={(e) => setFormData(prev => ({ ...prev, phone: e.target.value }))}
+                  placeholder="Enter phone number"
+                />
+              </div>
+              <div>
+                <Label htmlFor="edit-department">Department</Label>
+                <Input
+                  id="edit-department"
+                  value={formData.department}
+                  onChange={(e) => setFormData(prev => ({ ...prev, department: e.target.value }))}
+                  placeholder="Enter department"
+                />
+              </div>
+              <div>
+                <Label htmlFor="edit-position">Position</Label>
+                <Input
+                  id="edit-position"
+                  value={formData.position}
+                  onChange={(e) => setFormData(prev => ({ ...prev, position: e.target.value }))}
+                  placeholder="Enter position"
+                />
+              </div>
+              <div>
+                <Label htmlFor="edit-join_date">Join Date</Label>
+                <Input
+                  id="edit-join_date"
+                  type="date"
+                  value={formData.join_date}
+                  onChange={(e) => setFormData(prev => ({ ...prev, join_date: e.target.value }))}
+                />
+              </div>
+              <div>
+                <Label htmlFor="edit-role">Role</Label>
+                <Select
+                  value={formData.role}
+                  onValueChange={(value) => setFormData(prev => ({ ...prev, role: value as any }))}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select role" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="admin">Admin</SelectItem>
+                    <SelectItem value="manager">Manager</SelectItem>
+                    <SelectItem value="executive">Executive</SelectItem>
+                    <SelectItem value="client">Client</SelectItem>
+                    <SelectItem value="vendor">Vendor</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
-            <div>
-              <Label htmlFor="edit-phone">Phone</Label>
-              <Input
-                id="edit-phone"
-                value={formData.phone}
-                onChange={(e) => setFormData(prev => ({ ...prev, phone: e.target.value }))}
-                placeholder="Enter phone number"
-              />
-            </div>
-            <div>
-              <Label htmlFor="edit-role">Role</Label>
-              <Select value={formData.role} onValueChange={(value: any) => setFormData(prev => ({ ...prev, role: value }))}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="executive">Executive</SelectItem>
-                  <SelectItem value="manager">Manager</SelectItem>
-                  <SelectItem value="admin">Admin</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
+            
+            <DialogFooter className="gap-2 sm:gap-0">
+              <Button 
+                variant="outline" 
+                onClick={() => setEditingUser(null)}
+                disabled={updateUserMutation.isPending}
+              >
+                Cancel
+              </Button>
+              <Button 
+                onClick={() => editingUser && updateUserMutation.mutate({ ...formData, id: editingUser.id })}
+                disabled={updateUserMutation.isPending}
+              >
+                {updateUserMutation.isPending ? 'Updating...' : 'Update User'}
+              </Button>
+            </DialogFooter>
           </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setEditingUser(null)}>
-              Cancel
-            </Button>
-            <Button 
-              onClick={() => editingUser && updateUserMutation.mutate({ ...formData, id: editingUser.id })}
-              disabled={updateUserMutation.isPending}
-            >
-              {updateUserMutation.isPending ? 'Updating...' : 'Update User'}
-            </Button>
-          </DialogFooter>
         </DialogContent>
       </Dialog>
-    </div>
-  );
+);
 };
 
 export default UsersList;
