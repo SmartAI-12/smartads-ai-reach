@@ -66,7 +66,7 @@ const App = () => (
             <Route 
               path="/campaigns/create" 
               element={
-                <ProtectedRoute requiredRole="manager">
+                <ProtectedRoute requiredRole="executive">
                   <AppLayout>
                     <CreateCampaignPage />
                   </AppLayout>
@@ -76,7 +76,7 @@ const App = () => (
             <Route 
               path="/campaigns/new" 
               element={
-                <ProtectedRoute requiredRole="manager">
+                <ProtectedRoute requiredRole="executive">
                   <AppLayout>
                     <CreateCampaignPage />
                   </AppLayout>
@@ -86,7 +86,7 @@ const App = () => (
             <Route 
               path="/clients" 
               element={
-                <ProtectedRoute requiredRole="manager">
+                <ProtectedRoute requiredRole="executive">
                   <AppLayout>
                     <ClientsPage />
                   </AppLayout>
@@ -96,7 +96,7 @@ const App = () => (
             <Route 
               path="/clients/create" 
               element={
-                <ProtectedRoute requiredRole="manager">
+                <ProtectedRoute requiredRole="executive">
                   <AppLayout>
                     <CreateClientPage />
                   </AppLayout>
@@ -216,7 +216,7 @@ const App = () => (
             <Route 
               path="/users" 
               element={
-                <ProtectedRoute requiredRole="admin">
+                <ProtectedRoute allowedRoles={["admin", "manager"]}>
                   <AppLayout>
                     <UsersPage />
                   </AppLayout>
@@ -226,7 +226,7 @@ const App = () => (
             <Route 
               path="/vendors" 
               element={
-                <ProtectedRoute requiredRole="manager">
+                <ProtectedRoute requiredRole="executive">
                   <AppLayout>
                     <VendorsPage />
                   </AppLayout>

@@ -34,6 +34,7 @@ import {
 import { useExpenses, useApproveExpense } from '@/hooks/useExpenses';
 import { useAuth } from '@/contexts/AuthContext';
 import { Skeleton } from '@/components/ui/skeleton';
+import { isManagerOrAbove, UserRole } from '@/utils/roleUtils';
 
 const ExpensesList: React.FC = () => {
   const { profile } = useAuth();
@@ -93,7 +94,7 @@ const ExpensesList: React.FC = () => {
     return matchesSearch && matchesStatus && matchesCategory;
   });
 
-  const canApproveExpenses = profile?.role === 'admin' || profile?.role === 'manager';
+  const canApproveExpenses = isManagerOrAbove(profile?.role as UserRole);
 
   const columns: Column<any>[] = [
     {

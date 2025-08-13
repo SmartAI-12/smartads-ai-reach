@@ -793,7 +793,7 @@ const UsersList: React.FC = () => {
   }));
 
   // Check if user has admin privileges
-  const canManageUsers = profile?.role === 'admin';
+  const canManageUsers = profile?.role === 'admin' || profile?.role === 'manager';
 
   if (!canManageUsers) {
     return (

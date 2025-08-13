@@ -2,15 +2,18 @@ import React from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { AuthForm } from './AuthForm';
 import { Skeleton } from '@/components/ui/skeleton';
+import { hasAccess, UserRole } from '@/utils/roleUtils';
 
 interface ProtectedRouteProps {
   children: React.ReactNode;
-  requiredRole?: 'admin' | 'manager' | 'executive' | 'vendor';
+  requiredRole?: UserRole;
+  allowedRoles?: UserRole[];
 }
 
 export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ 
   children, 
-  requiredRole 
+  requiredRole,
+  allowedRoles
 }) => {
   const { user, profile, loading } = useAuth();
 
@@ -30,7 +33,10 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
     return <AuthForm />;
   }
 
-  if (requiredRole && profile?.role !== requiredRole && profile?.role !== 'admin') {
+  const userRole = profile?.role as UserRole;
+  
+  // Check access based on role hierarchy or allowed roles
+  if (requiredRole && userRole && !hasAccess(userRole, requiredRole, allowedRoles)) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
         <div className="text-center space-y-4">
@@ -39,8 +45,13 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
             You don't have permission to access this page.
           </p>
           <p className="text-sm text-muted-foreground">
-            Required role: {requiredRole} | Your role: {profile?.role || 'unknown'}
+            Required role: {requiredRole} | Your role: {userRole || 'unknown'}
           </p>
+          {allowedRoles && (
+            <p className="text-xs text-muted-foreground">
+              Allowed roles: {allowedRoles.join(', ')}
+            </p>
+          )}
         </div>
       </div>
     );

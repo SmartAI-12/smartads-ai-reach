@@ -13,6 +13,7 @@ import { useTasks } from '@/hooks/useTasks';
 import { DashboardSkeleton } from '@/components/ui/dashboard-skeleton';
 import { PerformanceMonitor } from '@/components/ui/performance-monitor';
 import { VendorDashboard } from '@/components/dashboard/VendorDashboard';
+import { ExecutiveDashboard } from '@/components/dashboard/ExecutiveDashboard';
 
 const Index = () => {
   const { profile } = useAuth();
@@ -20,9 +21,13 @@ const Index = () => {
   const { data: campaigns, isLoading: campaignsLoading } = useCampaigns();
   const { data: tasks, isLoading: tasksLoading } = useTasks();
 
-  // Show vendor dashboard if user is a vendor
+  // Show role-specific dashboards
   if (profile?.role === 'vendor') {
     return <VendorDashboard />;
+  }
+  
+  if (profile?.role === 'executive') {
+    return <ExecutiveDashboard />;
   }
 
   if (statsLoading || campaignsLoading || tasksLoading) {

@@ -5,13 +5,14 @@ import { Button } from '@/components/ui/button';
 import { useNavigate } from 'react-router-dom';
 import { QuickCreateModal } from '@/components/modals/QuickCreateModal';
 import { useAuth } from '@/contexts/AuthContext';
+import { isExecutiveOrAbove, UserRole } from '@/utils/roleUtils';
 
 export const QuickActions: React.FC = () => {
   const { profile } = useAuth();
   const navigate = useNavigate();
   
-  const canCreateCampaigns = profile?.role === 'admin' || profile?.role === 'manager';
-  const canManageClients = profile?.role === 'admin' || profile?.role === 'manager';
+  const canCreateCampaigns = isExecutiveOrAbove(profile?.role as UserRole);
+  const canManageClients = isExecutiveOrAbove(profile?.role as UserRole);
 
   const actions = [
     {

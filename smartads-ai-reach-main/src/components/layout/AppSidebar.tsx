@@ -26,6 +26,7 @@ import {
   useSidebar,
 } from '@/components/ui/sidebar';
 import { useAuth } from '@/contexts/AuthContext';
+import { isExecutiveOrAbove, UserRole } from '@/utils/roleUtils';
 
 const mainItems = [
   { title: 'Dashboard', url: '/', icon: LayoutDashboard },
@@ -61,7 +62,7 @@ export const AppSidebar: React.FC = () => {
       ? 'bg-sidebar-primary text-white font-medium border-l-2 border-sidebar-primary' 
       : 'text-black hover:text-sidebar-primary';
 
-  const canAccessAdmin = profile?.role === 'admin' || profile?.role === 'manager';
+  const canAccessAdmin = isExecutiveOrAbove(profile?.role as UserRole);
   const isVendor = profile?.role === 'vendor';
   const isCollapsed = state === 'collapsed';
 
