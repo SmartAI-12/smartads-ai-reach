@@ -6,15 +6,8 @@
   "framework": "vite",
   "rewrites": [
     {
-      "source": "/((?!api|_next|static).*)",
+      "source": "/((?!api|assets|favicon.ico|robots.txt|.*\\.).*)",
       "destination": "/index.html"
-    }
-  ],
-  "redirects": [
-    {
-      "source": "/",
-      "destination": "/index.html",
-      "permanent": false
     }
   ],
   "headers": [
