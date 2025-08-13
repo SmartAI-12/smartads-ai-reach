@@ -124,8 +124,7 @@ const UsersList: React.FC = () => {
         metadata: {
           department: 'Marketing', // Sample department
           position: user.role === 'admin' ? 'System Administrator' : 
-                   user.role === 'manager' ? 'Campaign Manager' : 
-                   user.role === 'vendor' ? 'Field Representative' : 'Executive',
+                   user.role === 'manager' ? 'Campaign Manager' : 'Executive',
           join_date: user.created_at?.split('T')[0] || new Date().toISOString().split('T')[0],
           permissions: [],
           last_password_change: user.updated_at
@@ -133,11 +132,11 @@ const UsersList: React.FC = () => {
         activity_metrics: {
           tasks_completed: Math.floor(Math.random() * 20),
           campaigns_managed: Math.floor(Math.random() * 5),
-          last_active_campaign: user.role === 'vendor' ? 'Monsoon Metro Blitz' : 'Retail Rush Campaign',
+          last_active_campaign: 'Retail Rush Campaign',
           total_logins: Math.floor(Math.random() * 50) + 10,
           avg_session_duration: Math.floor(Math.random() * 120) + 30,
           performance_score: Math.floor(Math.random() * 40) + 60, // 60-100 range
-          engagement_level: (Math.random() > 0.6 ? 'high' : Math.random() > 0.3 ? 'medium' : 'low') as const
+          engagement_level: Math.random() > 0.6 ? 'high' as const : Math.random() > 0.3 ? 'medium' as const : 'low' as const
         },
         // Mock missing fields for demo purposes
         last_login_at: user.updated_at,
